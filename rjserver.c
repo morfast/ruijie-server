@@ -270,6 +270,22 @@ void print2mac(const u_char *packet)
     fprintf(stderr,"%02x\n",packet[i]);
 }
 
+void output_packet(const u_char *packet, int begin, int end)
+{
+    /* output a packet */
+    int i;
+    int c = 1;
+
+    for (i = begin; i < end; i++) {
+        fprintf(stderr,"%02x ",packet[i]);
+        if (c % 8 == 0) {
+            fprintf(stderr,"  ");
+        } else if (c % 16 == 0) {
+            fprintf(stderr,"\n");
+        }
+    }
+}
+
 
 
 
@@ -374,6 +390,7 @@ void main_loop(pcap_t *handler)
                 }
                 if(pkt_data[0x12] == 0x02 && pkt_data[0x16] == 0x04) {
                     fprintf(stderr, "md5 confirmed\n");
+                    output_packet(pkt_data, 0x18, 0x28);
                 } else {
                     continue;
                 }
