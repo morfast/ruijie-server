@@ -21,6 +21,39 @@
 
 u_char ServerMac[6] = {0x00,0xea,0x01,0x28,0x28,0xeb};
 
+int macConvert(char *macstr, u_char *mac)
+{
+    char *pstr = macstr;
+    u_char *pmac = mac;
+    unsigned int state = 0;
+
+    while (*pstr != '\0') {
+        if (*pstr >= '0' && *pstr <= '9') {
+            if (state == 0) { /* first */
+                *pmac = (u_char)((*pstr) - '0');
+            } else {
+                *pmac = ((u_char)((*pstr) - '0')) + (*pmac)*16;
+                printf("%x ", *pmac);
+                pmac++;
+            }
+            state = 1 - state;
+
+        } else if (*pstr >= 'a' && *pstr <= 'f') {
+            if (state == 0) { /* first */
+                *pmac = (u_char)((*pstr) - 'a' + 0x0a);
+            } else {
+                *pmac = ((u_char)((*pstr) - 'a' + 0x0a)) + (*pmac)*16;
+                printf("%x ", *pmac);
+                pmac++;
+            }
+            state = 1 - state;
+        } 
+        pstr++;
+    }
+
+    return 0;
+}
+
 void printmac(u_char *mac)
 {
     int i;
@@ -372,8 +405,9 @@ void main_loop(pcap_t *handler)
 
 
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    macConvert(argv[1], ServerMac);
     pcap_t* handler;
 
     //GetAddr();
