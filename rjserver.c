@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include<sys/types.h>
 
+
 #define LISTENING 0
 #define STARTGOT 1
 #define REQ1SENT 2
@@ -19,7 +20,8 @@
 
 #define ETHERTYPE 0x8880
 
-u_char ServerMac[6] = {0x00,0xea,0x01,0x28,0x28,0xeb};
+u_char ServerMac[6];
+char *LogFileName = "rdserver.log";
 
 int macConvert(char *macstr, u_char *mac)
 {
@@ -270,6 +272,11 @@ void print2mac(const u_char *packet)
 {
     int i;
 
+    if (memcmp((void*)packet, (void *)ServerMac, 6) == 0 ||
+        memcmp((void*)(packet+6), (void *)ServerMac, 6) == 0) {
+        return;
+    }
+
     for(i = 0; i < 5; i++) {
         fprintf(stderr,"%02x:",packet[i]);
     }
@@ -281,19 +288,22 @@ void print2mac(const u_char *packet)
     fprintf(stderr,"%02x\n",packet[i]);
 }
 
-void output_packet(const u_char *packet, int begin, int end)
+void output_packet(const u_char *packet, int begin, int end, FILE *ofile)
 {
     /* output a packet */
     int i;
     int c = 1;
 
     for (i = begin; i < end; i++) {
-        fprintf(stderr,"%02x ",packet[i]);
+        fprintf(ofile,"%02x ",packet[i]);
         if (c % 8 == 0) {
-            fprintf(stderr,"  ");
+            fprintf(ofile,"  ");
         } else if (c % 16 == 0) {
-            fprintf(stderr,"\n");
+            fprintf(ofile,"\n");
         }
+    }
+    if (c % 16 != 0) {
+        fprintf(ofile,"\n");
     }
 }
 
@@ -312,8 +322,13 @@ void main_loop(pcap_t *handler)
     u_char username[20];
 
     int sockfd;
-
     struct sockaddr_in address;
+    FILE *logfile;
+
+    if ((logfile = fopen(LogFileName, "w")) == NULL) {
+        fprintf(stderr, "Could not create logfile\n");
+        logfile = stderr;
+    }
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -327,7 +342,7 @@ void main_loop(pcap_t *handler)
 
     while(1) {
         if(state == LISTENING) {
-            fprintf(stderr,"Listening...\n");
+            fprintf(stderr,"#");
             if((res = pcap_next_ex(handler, &header, &pkt_data)) > 0) {
                 if(pkt_data[0x0f] == 0x01) {
                     fprintf(stderr,"Start packet got\n");
@@ -348,7 +363,7 @@ void main_loop(pcap_t *handler)
                 }
             } else {
                 if(res == 0) { /* time out */
-                    fprintf(stderr,"time out\n");
+                    fprintf(stderr,".");
                     continue;
                 } else {
                     fprintf(stderr, "packet receive error\n");
@@ -370,7 +385,8 @@ void main_loop(pcap_t *handler)
                 if(pkt_data[0x12] == 0x02 && pkt_data[0x16] == 0x01) {
                     fprintf(stderr, "id confirmed\n");
                     getusername( pkt_data,username);
-                    fprintf(stdout,"%s\n",username);
+                    fprintf(logfile,"%s\n",username);
+                    fprintf(stderr,"%s\n",username);
                     username[19] = '\n';
                     sendto(sockfd, username, sizeof(username), 0, (struct sockaddr *)&address, sizeof(address));
                 } else {
@@ -379,7 +395,7 @@ void main_loop(pcap_t *handler)
                 }
             } else {
                 if(res == 0) { /* time out */
-                    fprintf(stderr,"time out\n");
+                    fprintf(stderr,".");
                     state = 0;
                     continue;
                 } else {
@@ -401,13 +417,14 @@ void main_loop(pcap_t *handler)
                 }
                 if(pkt_data[0x12] == 0x02 && pkt_data[0x16] == 0x04) {
                     fprintf(stderr, "md5 confirmed\n");
-                    output_packet(pkt_data, 0x18, 0x28);
+                    output_packet(pkt_data, 0x18, 0x28, logfile);
+                    output_packet(pkt_data, 0x18, 0x28, stderr);
                 } else {
                     continue;
                 }
             } else {
                 if(res == 0) { /* time out */
-                    fprintf(stderr,"time out\n");
+                    fprintf(stderr,".");
                     state = 0;
                     continue;
                 } else {
