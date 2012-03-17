@@ -107,7 +107,7 @@ int mksocket()
     return sockfd;
 }
 
-pcap_t *opev_devices(void)
+pcap_t *opev_devices(char *devname)
 {
         pcap_if_t *alldevs;
         pcap_if_t *d;
@@ -115,38 +115,51 @@ pcap_t *opev_devices(void)
         int i=0;
         char errbuf[PCAP_ERRBUF_SIZE];
         int inum;
-                        
-        /* Retrieve the device list from the local machine */
+
         if (pcap_findalldevs(&alldevs, errbuf) == -1) {
             fprintf(stderr,"Error in pcap_findalldevs_ex: %s\n", errbuf);
             exit(1);
         }
-                            
-        /* Print the list */
-        for(d= alldevs; d != NULL; d= d->next) {
-            printf("%d. %s", ++i, d->name);
-            if (d->description)
-                printf(" (%s)\n", d->description);
-            else
-                printf(" (No description available)\n");
-        }
-                                
-        if (i == 0) {
-            printf("\nNo interfaces found! Make sure WinPcap is installed.\n");
-            exit(1);
-        }
 
-        printf("Enter the interface number 1-%d : ", i);
-        scanf("%d", &inum);
+        if (strcmp(devname, "") == 0) {
+            /* user does not give a name, list all */
+            /* Retrieve the device list from the local machine */
+            /* Print the list */
+            for(d= alldevs; d != NULL; d= d->next) {
+                printf("%d. %s", ++i, d->name);
+                if (d->description)
+                    printf(" (%s)\n", d->description);
+                else
+                    printf(" (No description available)\n");
+            }
+                                    
+            if (i == 0) {
+                printf("\nNo interfaces found! Make sure WinPcap is installed.\n");
+                exit(1);
+            }
 
-        if(inum < 1 || inum > i) {
-            printf("interface number out of range\n");
-            pcap_freealldevs(alldevs);
-            exit(1);
+            printf("Enter the interface number 1-%d : ", i);
+            scanf("%d", &inum);
+
+            if(inum < 1 || inum > i) {
+                printf("interface number out of range\n");
+                pcap_freealldevs(alldevs);
+                exit(1);
+            }
+
+            for(d = alldevs, i = 0; i < inum-1; i++)
+                d = d->next;
+
+        } else {
+            for(d = alldevs, i = 0; i < inum-1; i++) {
+                if (strcmp(d->name, devname) == 0) 
+                    break;
+            }
+            if (i >= inum - 1) {
+                fprintf(stderr, "device not found, please use a valid device name\n");
+                exit(1);
+            }
         }
-
-        for(d = alldevs, i = 0; i < inum-1; i++)
-            d = d->next;
 
         /* open device */
         if((adhandle = pcap_open_live(d->name, 65536, 1, 10000, errbuf)) == NULL) {
@@ -155,9 +168,7 @@ pcap_t *opev_devices(void)
             exit(1);
         }
 
-
         return adhandle;
-
 }
 
 void SetFilter(pcap_t *handler)
@@ -418,18 +429,31 @@ void main_loop(pcap_t *handler)
 
 }
 
-
+void printUsage(void)
+{
+    fprintf(stderr, "Usage: rjserver <MAC> <devname>\n");
+}
 
 
 
 int main(int argc, char *argv[])
 {
+    if (argc == 1) {
+        printUsage();
+        exit(1);
+    }
+
     macConvert(argv[1], ServerMac);
     pcap_t* handler;
 
     //GetAddr();
 
-    handler = opev_devices();
+    if (argc == 2) {
+        handler = opev_devices("");
+    } else {
+        handler = opev_devices(argv[2]);
+    }
+
     SetFilter(handler);
     main_loop(handler);
 
