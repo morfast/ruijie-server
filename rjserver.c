@@ -151,13 +151,11 @@ pcap_t *opev_devices(char *devname)
                 d = d->next;
 
         } else {
-            for(d = alldevs, i = 0; i < inum-1; i++) {
-                fprintf(stderr, "%s\t%s\n", d->name, devname);
-                fprintf(stderr, "%d\t%d\n", i, inum);
+            for(d = alldevs; d != NULL; d = d->next) {
                 if (strcmp(d->name, devname) == 0) 
                     break;
             }
-            if (i >= inum - 1) {
+            if (d == NULL) {
                 fprintf(stderr, "device not found, please use a valid device name\n");
                 exit(1);
             }
