@@ -152,6 +152,8 @@ pcap_t *opev_devices(char *devname)
 
         } else {
             for(d = alldevs, i = 0; i < inum-1; i++) {
+                fprintf(stderr, "%s\t%s\n", d->name, devname);
+                fprintf(stderr, "%d\t%d\n", i, inum);
                 if (strcmp(d->name, devname) == 0) 
                     break;
             }
